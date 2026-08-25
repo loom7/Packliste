@@ -189,10 +189,8 @@ pruefe("Uebernahme wird gemeldet",
        w.document.getElementById("status").textContent);
 
 /* 12. Geteilter Link neben eigenem Stand fragt nach und fuehrt zusammen */
-let eigen = await starten({});
-eigen.document.querySelector(".neuekat input").value = "Musik";
-eigen.document.querySelector(".neuekat button").click();
-await warten();
+const eigen = await starten({});
+await blockAnlegen(eigen, "Musik");
 const eigenerSpeicher = auslesen(eigen);
 
 w = await starten(eigenerSpeicher, fragment);
