@@ -40,9 +40,10 @@ function encode(){
   const cust = [];
   Object.keys(S.extra).forEach(c => (S.extra[c]||[]).forEach(e =>
     cust.push([c, e.label, S.done[e.id] ? 1 : 0])));
-  /* Eigene Kategorien stehen nicht in DATA, ihr Einklappzustand passt also
-     nicht in die Bitmaske oben und reist im Datensatz selbst mit.           */
-  const kat = S.kat.map(k => [k.id, k.t, S.zu[k.id] ? 1 : 0]);
+  /* Eigene Kategorien stehen nicht in DATA, ihr Einklapp- und Sichtbarkeits-
+     zustand passt also nicht in die Bitmasken oben und reist im Datensatz
+     selbst mit. Das vierte Feld kam spaeter dazu und darf fehlen.           */
+  const kat = S.kat.map(k => [k.id, k.t, S.zu[k.id] ? 1 : 0, k.aus ? 1 : 0]);
   return ["1", Date.now().toString(36), b64(bits), mods.toString(36),
           zu.toString(36), S.filter ? "1" : "0",
           cust.length ? utf8b64(JSON.stringify(cust)) : "",
@@ -73,7 +74,9 @@ function decode(str){
     }
     if(p[7]){          // Feld 8 fehlt in Staenden vor den eigenen Kategorien
       JSON.parse(b64utf8(p[7])).forEach(k=>{
-        st.kat.push({id:k[0], t:k[1]});
+        const e = {id:k[0], t:k[1]};
+        if(k[3]) e.aus = 1;          // fehlt in Staenden vor dem Chip
+        st.kat.push(e);
         if(k[2]) st.zu[k[0]] = 1;
       });
     }
@@ -126,9 +129,13 @@ function zusammenfuehren(eigen, fremd){
   seiten.forEach(([st,seite])=>{
     (st.kat||[]).forEach(k=>{
       const treffer = neu.kat.find(x => norm(x.t) === norm(k.t));
-      if(treffer){ abbild[seite+k.id] = treffer.id; return; }
+      /* Sichtbar schlaegt ausgeblendet: Wer den Block bei sich sieht, soll
+         ihn nach dem Zusammenfuehren nicht suchen muessen.                  */
+      if(treffer){ abbild[seite+k.id] = treffer.id; if(!k.aus) delete treffer.aus; return; }
       const id = "k" + (neu.kat.length + 1);
-      neu.kat.push({id:id, t:k.t});
+      const eintrag = {id:id, t:k.t};
+      if(k.aus) eintrag.aus = 1;
+      neu.kat.push(eintrag);
       abbild[seite+k.id] = id;
       if(st.zu[k.id]) neu.zu[id] = 1;
     });
