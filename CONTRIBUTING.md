@@ -41,6 +41,13 @@ CLAUDE.md.
 Modul zusätzlich einen Eintrag in `MODULE` ergänzen. `id` muss eindeutig sein
 und darf sich später nicht mehr ändern — sie steckt in den gespeicherten Ständen.
 
+**Das Muster `k` gefolgt von Ziffern ist belegt.** Blöcke, die Nutzer selbst
+anlegen, bekommen Kennungen wie `k1`, `k2`, `k3`. Eine `id` in `data.js`, die
+diesem Muster folgt, würde mit dem eigenen Block eines Nutzers kollidieren:
+Beide Blöcke teilten sich dieselben Einträge, und beim Löschen des eigenen
+verschwänden auch die aus `data.js`. Ein Wort als `id` wählen, wie überall
+sonst — `dok`, `kleid`, `tech`.
+
 ## Vor dem Merge
 
 - [ ] `node test/smoke.mjs` läuft durch
