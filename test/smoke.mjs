@@ -52,6 +52,17 @@ const beschriftungen = w => [...w.document.querySelectorAll(".txt")].map(t => t.
 const abschnitt = (w, titel) =>
   [...w.document.querySelectorAll("section")].find(s => s.querySelector("h2").textContent === titel);
 
+/* Legt ueber den Chip "Neu" einen eigenen Block an. */
+async function blockAnlegen(w, name) {
+  [...w.document.querySelectorAll("#chips .chip")].find(c => c.textContent === "Neu").click();
+  const dlg = w.document.querySelector(".dialog");
+  if (!dlg) return false;
+  dlg.querySelector(".eingabe").value = name;
+  dlg.querySelector(".wahl button").click();     // erster Knopf: Anlegen
+  await warten();
+  return true;
+}
+
 console.log("\nPackliste — Rauchtest\n");
 
 /* 1. Erststart */
@@ -108,42 +119,67 @@ pruefe("Beschaedigter Stand wird gemeldet",
 pruefe("Beschaedigter Stand wird nicht ueberschrieben",
        w.localStorage.getItem("packliste:v1") === "kaputt###");
 
-/* 7. Eigene Kategorie anlegen und fuellen */
+/* 7. Eigenen Block ueber den Chip "Neu" anlegen und fuellen */
 w = await starten({});
-w.document.querySelector(".neuekat input").value = "Angeln";
-w.document.querySelector(".neuekat button").click();
-await warten();
-pruefe("Eigene Kategorie erscheint", ueberschriften(w).includes("Angeln"),
+pruefe("Chip \"Neu\" steht in der Chip-Zeile",
+       [...w.document.querySelectorAll("#chips .chip")].some(c => c.textContent === "Neu"));
+const angelegt = await blockAnlegen(w, "Angeln");
+pruefe("Chip \"Neu\" fragt nach der Bezeichnung", angelegt);
+pruefe("Eigener Block erscheint", ueberschriften(w).includes("Angeln"),
        ueberschriften(w).length + " Abschnitte");
+pruefe("Gleiche Bezeichnung bekommt eine Nummer",
+       await blockAnlegen(w, "Angeln") && ueberschriften(w).includes("Angeln 2"),
+       ueberschriften(w).filter(t => t.startsWith("Angeln")).join(", "));
 
+/* 8. Loeschecke: nur an eigenen Bloecken, fragt nach, Abbrechen laesst stehen */
+pruefe("Basisbloecke haben keine Loeschecke",
+       w.document.querySelectorAll("section:not(.eigen) .blockweg").length === 0,
+       w.document.querySelectorAll(".blockweg").length + " Ecken insgesamt");
+pruefe("Eigene Bloecke haben eine Loeschecke",
+       !!abschnitt(w, "Angeln 2").querySelector(".blockweg"));
+
+abschnitt(w, "Angeln 2").querySelector(".blockweg").click();
+let frage = w.document.querySelector(".dialog");
+pruefe("Loeschecke fragt nach", !!frage);
+if (frage) frage.querySelectorAll(".wahl button")[1].click();   // Abbrechen
+await warten();
+pruefe("Abbrechen laesst den Block stehen", ueberschriften(w).includes("Angeln 2"));
+
+abschnitt(w, "Angeln 2").querySelector(".blockweg").click();
+frage = w.document.querySelector(".dialog");
+if (frage) frage.querySelector(".wahl button").click();         // Entfernen
+await warten();
+pruefe("Entfernen loescht den Block", !ueberschriften(w).includes("Angeln 2"));
+
+/* 9. Eintrag in eigenem Block, Neuladen, Loeschen nimmt ihn mit */
 const angeln = abschnitt(w, "Angeln");
 angeln.querySelector(".add input").value = "Angelrute";
 angeln.querySelector(".add button").click();
 await warten();
-pruefe("Eintrag in eigener Kategorie erscheint",
+pruefe("Eintrag in eigenem Block erscheint",
        beschriftungen(w).some(t => t.includes("Angelrute")));
 
 const katSpeicher = auslesen(w);
 w = await starten(katSpeicher);
-pruefe("Eigene Kategorie uebersteht Neuladen", ueberschriften(w).includes("Angeln"));
+pruefe("Eigener Block uebersteht Neuladen", ueberschriften(w).includes("Angeln"));
 pruefe("Eintrag darin uebersteht Neuladen",
        beschriftungen(w).some(t => t.includes("Angelrute")));
 
-/* 8. Kategorie loeschen nimmt ihre Eintraege mit */
-w.confirm = () => true;
-abschnitt(w, "Angeln").querySelector(".katweg").click();
+const merker = await starten(katSpeicher);
+merker.document.querySelector(".blockweg").click();
+merker.document.querySelector(".dialog .wahl button").click();
 await warten();
-pruefe("Kategorie loeschen entfernt den Abschnitt", !ueberschriften(w).includes("Angeln"));
-pruefe("Kategorie loeschen entfernt ihre Eintraege",
-       !beschriftungen(w).some(t => t.includes("Angelrute")));
+pruefe("Block entfernen nimmt seine Eintraege mit",
+       !ueberschriften(merker).includes("Angeln") &&
+       !beschriftungen(merker).some(t => t.includes("Angelrute")));
 
-/* 9. Teil-Link */
+/* 10. Teil-Link */
 w = await starten(katSpeicher);
 const link = w.teilLink();
 const fragment = link.slice(link.indexOf("#"));
 pruefe("Teil-Link traegt den Stand", fragment.startsWith("#g="), fragment.length + " Zeichen");
 
-/* 10. Geteilter Link ohne eigenen Stand wird uebernommen */
+/* 11. Geteilter Link ohne eigenen Stand wird uebernommen */
 w = await starten({}, fragment);
 pruefe("Geteilte Liste wird ohne eigenen Stand uebernommen",
        ueberschriften(w).includes("Angeln") &&
@@ -152,7 +188,7 @@ pruefe("Uebernahme wird gemeldet",
        /geteilte Liste|gespeichert/.test(w.document.getElementById("status").textContent),
        w.document.getElementById("status").textContent);
 
-/* 11. Geteilter Link neben eigenem Stand fragt nach und fuehrt zusammen */
+/* 12. Geteilter Link neben eigenem Stand fragt nach und fuehrt zusammen */
 let eigen = await starten({});
 eigen.document.querySelector(".neuekat input").value = "Musik";
 eigen.document.querySelector(".neuekat button").click();
@@ -173,7 +209,7 @@ pruefe("Zusammenfuehren behaelt den fremden Eintrag",
        beschriftungen(w).some(t => t.includes("Angelrute")));
 pruefe("Dialog verschwindet nach der Wahl", !w.document.querySelector(".dialog"));
 
-/* 12. Zusammenfuehren rechnerisch: vereinigen, aber nichts doppeln */
+/* 13. Zusammenfuehren rechnerisch: vereinigen, aber nichts doppeln */
 const eintraege = st => Object.keys(st.extra).reduce((n, c) => n + st.extra[c].length, 0);
 const a = w.decode(speicher["packliste:v1"]);                     // 5 Haken, ein eigener Eintrag
 const b = w.decode(w.localStorage.getItem("packliste:v1"));       // Angeln und Musik

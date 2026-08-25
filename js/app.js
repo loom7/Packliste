@@ -27,6 +27,28 @@ function chips(){
     b.onclick = ()=>{ S.mods[id] = !S.mods[id]; save(); chips(); render(); };
     box.appendChild(b);
   });
+  /* Kein Modul, sondern der Weg zu einem eigenen Block — deshalb abgesetzt
+     gestrichelt und ohne aria-pressed.                                      */
+  const neu = document.createElement("button");
+  neu.className = "chip neu"; neu.textContent = "Neu";
+  neu.title = "Eigenen Block anlegen";
+  neu.onclick = blockAnlegen;
+  box.appendChild(neu);
+}
+
+/* Fragt nach der Bezeichnung und haengt den Block an. Gleichlautende
+   Bezeichnungen bekommen eine Nummer: Beim Zusammenfuehren werden eigene
+   Bloecke ueber ihre Bezeichnung abgeglichen, zwei gleiche wuerden dort
+   verschmelzen.                                                             */
+async function blockAnlegen(){
+  const name = await dialogEingabe("Eigener Block",
+    "Wie soll der neue Block heißen?", "Neu");
+  if(!name) return;
+  let titel = name, n = 2;
+  const belegt = t => kategorien().some(c => c.t.toLowerCase() === t.toLowerCase());
+  while(belegt(titel)) titel = name + " " + (n++);
+  S.kat.push({id:neueKatId(), t:titel});
+  save(); render();
 }
 
 function render(){
@@ -51,6 +73,11 @@ function render(){
     head.querySelector(".count").textContent = k + "/" + n;
     head.onclick = ()=>{ S.zu[cat.id] = !S.zu[cat.id]; save(); render(); };
     sec.appendChild(head);
+
+    /* Abgetrennte Ecke oben rechts zum Entfernen. Sie liegt neben dem Kopf,
+       nicht darin: Eine Schaltflaeche in einer Schaltflaeche waere ungueltig
+       und liesse sich mit der Tastatur nicht erreichen.                     */
+    if(cat.eigen) sec.appendChild(loeschecke(cat));
 
     const ul = document.createElement("ul");
     let offen = 0;
@@ -112,21 +139,6 @@ function render(){
     inp.addEventListener("keydown", e=>{ if(e.key==="Enter") go(); });
     add.append(inp, btn);
 
-    if(cat.eigen){
-      const weg = document.createElement("button");
-      weg.className = "katweg"; weg.textContent = "Kategorie löschen";
-      weg.onclick = ()=>{
-        const anzahl = (S.extra[cat.id]||[]).length;
-        if(!confirm('Kategorie "' + cat.t + '" löschen?'
-            + (anzahl ? " Die " + anzahl + " Einträge darin gehen mit verloren." : ""))) return;
-        (S.extra[cat.id]||[]).forEach(e => delete S.done[e.id]);
-        delete S.extra[cat.id];
-        delete S.zu[cat.id];
-        S.kat = S.kat.filter(k => k.id !== cat.id);
-        save(); render();
-      };
-      add.appendChild(weg);
-    }
     sec.appendChild(add);
 
     app.appendChild(sec);
@@ -135,29 +147,37 @@ function render(){
   if(!sichtbareBloecke){
     app.innerHTML = '<div class="leer">Keine Blöcke aktiv. Oben eine Reiseart wählen.</div>';
   }
-  app.appendChild(neueKategorie());
   kopf(fertig, gesamt);
   document.getElementById("foot").textContent = fertig + " von " + gesamt + " erledigt · " + MODE;
 }
 
-/* Zeile am Ende der Liste, ueber die eine eigene Kategorie entsteht. */
-function neueKategorie(){
-  const box = document.createElement("div");
-  box.className = "neuekat";
-  const inp = document.createElement("input");
-  inp.type = "text"; inp.placeholder = "Neue Kategorie";
-  inp.enterKeyHint = "done";
-  const btn = document.createElement("button");
-  btn.textContent = "Kategorie anlegen";
-  const go = ()=>{
-    const v = inp.value.trim(); if(!v) return;
-    S.kat.push({id:neueKatId(), t:v});
-    inp.value = ""; save(); render();
+/* Die diagonal abgetrennte Ecke oben rechts eines eigenen Blocks. Der
+   Muelleimer ist als SVG eingebettet — eine Zeichensatz-Alternative gibt es
+   nicht, die auf allen Geraeten gleich aussieht.                            */
+function loeschecke(cat){
+  const b = document.createElement("button");
+  b.className = "blockweg";
+  b.setAttribute("aria-label", 'Block "' + cat.t + '" entfernen');
+  b.title = "Block entfernen";
+  b.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none"'
+    + ' stroke="currentColor" stroke-width="2" stroke-linecap="round"'
+    + ' stroke-linejoin="round" aria-hidden="true">'
+    + '<path d="M4 7h16M10 4h4M7 7l1 13h8l1-13M10 11v6M14 11v6"/></svg>';
+  b.onclick = async ()=>{
+    const anzahl = (S.extra[cat.id]||[]).length;
+    const ja = await dialog("Block entfernen",
+      'Soll der Block "' + cat.t + '" wirklich entfernt werden?'
+      + (anzahl ? " Die " + anzahl + (anzahl === 1 ? " Eintrag" : " Einträge")
+                + " darin gehen mit verloren." : ""),
+      [["Entfernen", true, "gefahr"], ["Abbrechen", false]]);
+    if(!ja) return;
+    (S.extra[cat.id]||[]).forEach(e => delete S.done[e.id]);
+    delete S.extra[cat.id];
+    delete S.zu[cat.id];
+    S.kat = S.kat.filter(k => k.id !== cat.id);
+    save(); render();
   };
-  btn.onclick = go;
-  inp.addEventListener("keydown", e=>{ if(e.key==="Enter") go(); });
-  box.append(inp, btn);
-  return box;
+  return b;
 }
 
 function kopf(fertig, gesamt){
@@ -218,6 +238,35 @@ function dialog(titel, text, wahlen){
     document.body.appendChild(hg);
     const erster = zeile.querySelector("button");
     if(erster) erster.focus();
+  });
+}
+
+/* Dasselbe Fenster mit einem Eingabefeld. Liefert die Eingabe oder null. */
+function dialogEingabe(titel, text, vorgabe){
+  return new Promise(fertig=>{
+    const hg = document.createElement("div");
+    hg.className = "dialog";
+    const karte = document.createElement("div");
+    karte.className = "karte";
+    const h = document.createElement("h3"); h.textContent = titel;
+    const p = document.createElement("p"); p.textContent = text;
+    const feld = document.createElement("input");
+    feld.type = "text"; feld.value = vorgabe || ""; feld.className = "eingabe";
+    feld.enterKeyHint = "done";
+    karte.append(h, p, feld);
+    const zeile = document.createElement("div"); zeile.className = "wahl";
+    const ok = document.createElement("button"); ok.textContent = "Anlegen";
+    const ab = document.createElement("button"); ab.textContent = "Abbrechen";
+    const nimm = ()=>{ const v = feld.value.trim(); hg.remove(); fertig(v || null); };
+    ok.onclick = nimm;
+    ab.onclick = ()=>{ hg.remove(); fertig(null); };
+    feld.addEventListener("keydown", e=>{ if(e.key==="Enter") nimm(); });
+    zeile.append(ok, ab);
+    karte.appendChild(zeile);
+    hg.appendChild(karte);
+    hg.onclick = ev => { if(ev.target === hg){ hg.remove(); fertig(null); } };
+    document.body.appendChild(hg);
+    feld.focus(); feld.select();
   });
 }
 

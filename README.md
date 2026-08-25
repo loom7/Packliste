@@ -11,7 +11,8 @@ installierbar und danach offline nutzbar.
   Fernreise, Städtereise, Kinder, Baby, Geschäftlich, Haustier), die passende
   Blöcke ein- und ausblenden
 - Eigene Einträge je Block
-- Eigene Kategorien anlegen und wieder löschen
+- Eigene Blöcke über den Chip „Neu" anlegen; entfernt werden sie über die
+  diagonal abgetrennte Ecke oben rechts im Block
 - Liste per Link weitergeben, beim Öffnen wahlweise zusammenführen (siehe unten)
 - Filter „Nur Offenes zeigen", Blöcke einklappbar
 - Der Stand übersteht das Neuladen und wird in mehrere Ablagen parallel
