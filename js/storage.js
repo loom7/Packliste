@@ -9,7 +9,7 @@
    Beim Laden gewinnt die Ablage mit dem jüngsten Zeitstempel.            */
 const KEY = "packliste:v1";
 const COOKIE = "packliste";
-let S = {done:{}, mods:{}, extra:{}, zu:{}, filter:false};
+let S = {done:{}, mods:{}, extra:{}, zu:{}, kat:[], filter:false};
 let saveTimer = null, MODE = "…";
 
 const BASEIDS = [];
@@ -40,9 +40,13 @@ function encode(){
   const cust = [];
   Object.keys(S.extra).forEach(c => (S.extra[c]||[]).forEach(e =>
     cust.push([c, e.label, S.done[e.id] ? 1 : 0])));
+  /* Eigene Kategorien stehen nicht in DATA, ihr Einklappzustand passt also
+     nicht in die Bitmaske oben und reist im Datensatz selbst mit.           */
+  const kat = S.kat.map(k => [k.id, k.t, S.zu[k.id] ? 1 : 0]);
   return ["1", Date.now().toString(36), b64(bits), mods.toString(36),
           zu.toString(36), S.filter ? "1" : "0",
-          cust.length ? utf8b64(JSON.stringify(cust)) : ""].join(".");
+          cust.length ? utf8b64(JSON.stringify(cust)) : "",
+          kat.length ? utf8b64(JSON.stringify(kat)) : ""].join(".");
 }
 
 function decode(str){
@@ -51,7 +55,7 @@ function decode(str){
     if(s.indexOf("%") > -1){ try{ s = decodeURIComponent(s); }catch(e){} }
     const p = s.split(s.indexOf(".") > -1 ? "." : "|");   // "|" = alte Fassung
     if(p[0] !== "1" || p.length < 6) return null;
-    const st = {done:{}, mods:{}, extra:{}, zu:{}, filter:p[5]==="1",
+    const st = {done:{}, mods:{}, extra:{}, zu:{}, kat:[], filter:p[5]==="1",
                 ts:parseInt(p[1],36)||0};
     const bits = unb64(p[2]);
     BASEIDS.forEach((id,i)=>{ if(bits[i>>3] & (1<<(i&7))) st.done[id] = 1; });
@@ -67,8 +71,91 @@ function decode(str){
         if(e[2]) st.done[id] = 1;
       });
     }
+    if(p[7]){          // Feld 8 fehlt in Staenden vor den eigenen Kategorien
+      JSON.parse(b64utf8(p[7])).forEach(k=>{
+        st.kat.push({id:k[0], t:k[1]});
+        if(k[2]) st.zu[k[0]] = 1;
+      });
+    }
     return st;
   }catch(err){ return null; }
+}
+
+/* ---------------- Eigene Kategorien ----------------
+   Kennungen laufen durch und werden nie wiederverwendet: Ein geloeschter
+   Eintrag darf die Zuordnung der uebrigen nicht verschieben.               */
+function neueKatId(){
+  let n = 0;
+  S.kat.forEach(k => { const m = /^k(\d+)$/.exec(k.id); if(m) n = Math.max(n, +m[1]); });
+  return "k" + (n+1);
+}
+
+/* ---------------- Teilen und Zusammenfuehren ----------------
+   Ein geteilter Link traegt den kompletten Stand hinter "#g=". Das eigene
+   Speichern benutzt "#p=" — so laesst sich beim Laden unterscheiden, ob da
+   der eigene Stand von zuletzt steht oder der von jemand anderem.          */
+function teilLink(){
+  return location.origin + location.pathname + "#g=" + encode();
+}
+function geteiltLesen(){
+  try{
+    const m = location.hash.match(/[#&]g=([^&]*)/);
+    if(!m) return "";
+    let v = m[1];
+    if(v.indexOf("%") > -1){ try{ v = decodeURIComponent(v); }catch(e){} }
+    return v;
+  }catch(e){ return ""; }
+}
+
+/* Zwei Staende vereinigen. Haken der Basisliste und Module lassen sich ueber
+   ihre Kennung vergleichen, eigene Kategorien und Eintraege nicht: Deren
+   laufende Nummern entstehen auf jedem Geraet unabhaengig, "k1" bei dir und
+   "k1" bei mir sind nicht dasselbe. Beide werden deshalb ueber ihre
+   Bezeichnung zusammengefuehrt und bekommen neue Kennungen.                */
+function zusammenfuehren(eigen, fremd){
+  const norm = t => String(t||"").trim().toLowerCase();
+  const neu = {done:{}, mods:{}, extra:{}, zu:{}, kat:[],
+               filter:eigen.filter, ts:Date.now()};
+  const seiten = [[eigen,"e"], [fremd,"f"]];
+
+  BASEIDS.forEach(id => { if(eigen.done[id] || fremd.done[id]) neu.done[id] = 1; });
+  MODULE.forEach(([m]) => { if(eigen.mods[m] || fremd.mods[m]) neu.mods[m] = 1; });
+  DATA.forEach(c => { if(eigen.zu[c.id]) neu.zu[c.id] = 1; });
+
+  const abbild = {};                 // Kennung je Seite -> Kennung im Ergebnis
+  seiten.forEach(([st,seite])=>{
+    (st.kat||[]).forEach(k=>{
+      const treffer = neu.kat.find(x => norm(x.t) === norm(k.t));
+      if(treffer){ abbild[seite+k.id] = treffer.id; return; }
+      const id = "k" + (neu.kat.length + 1);
+      neu.kat.push({id:id, t:k.t});
+      abbild[seite+k.id] = id;
+      if(st.zu[k.id]) neu.zu[id] = 1;
+    });
+  });
+
+  const bekannt = id => DATA.some(c=>c.id===id) || neu.kat.some(k=>k.id===id);
+  const gesehen = {};
+  let lauf = 0;
+  seiten.forEach(([st,seite])=>{
+    Object.keys(st.extra||{}).forEach(cat=>{
+      const ziel = abbild[seite+cat] || cat;   // Basisbloecke behalten ihre Kennung
+      if(!bekannt(ziel)) return;               // Kategorie existiert nicht mehr
+      (st.extra[cat]||[]).forEach(e=>{
+        /* Kennungen enthalten nie einen senkrechten Strich, der Schluessel
+           aus Kategorie und Bezeichnung ist damit eindeutig.               */
+        const schluessel = ziel + "|" + norm(e.label);
+        let id = gesehen[schluessel];
+        if(!id){
+          id = ziel + "-x" + (lauf++);
+          gesehen[schluessel] = id;
+          (neu.extra[ziel] = neu.extra[ziel]||[]).push({id:id, label:e.label});
+        }
+        if(st.done[e.id]) neu.done[id] = 1;
+      });
+    });
+  });
+  return neu;
 }
 
 /* --- Ablage 0: localStorage (auf https die zuverlässigste Ablage) --- */
@@ -126,6 +213,8 @@ function hashLesen(){
 }
 
 let ladefehler = false;
+let geteilterStand = null;   // Stand aus einem geteilten Link, falls einer anliegt
+let hatEigenen = false;      // Lag ueberhaupt ein eigener Stand vor?
 
 async function load(){
   const roh = [], kandidaten = [];
@@ -140,9 +229,15 @@ async function load(){
   if(kandidaten.length){
     kandidaten.sort((a,b) => (b[1].ts||0) - (a[1].ts||0));
     S = kandidaten[0][1];
+    hatEigenen = true;
   }else if(roh.length){
     ladefehler = true;   // Es lag etwas vor, war aber unlesbar
   }
+  /* Der geteilte Link wird bewusst nicht in die Auswahl oben geworfen: Sein
+     Zeitstempel wuerde sonst ueber fremd oder eigen entscheiden, und der
+     Empfaenger verloere seinen Stand, ohne gefragt worden zu sein.          */
+  const g = geteiltLesen();
+  if(g){ const d = decode(g); if(d) geteilterStand = d; }
 }
 
 function save(){

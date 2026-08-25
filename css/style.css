@@ -133,6 +133,54 @@
     font-size:14px;min-height:42px
   }
   .del{padding:0 14px 0 0;color:rgba(165,56,47,.7);font-size:19px;align-self:center}
+  section.eigen .head{border-left-color:var(--ink-soft)}
+  .katweg{
+    border:1px solid var(--line);border-radius:var(--radius);padding:0 12px;
+    font-size:13px;min-height:42px;color:var(--alert);white-space:nowrap
+  }
+
+  /* ---------- Eigene Kategorie anlegen ---------- */
+  .neuekat{
+    display:flex;gap:8px;margin:4px 0 14px;padding:14px;
+    border:1px dashed var(--line);border-radius:var(--radius);
+    background:rgba(246,244,238,.55)
+  }
+  .neuekat input{
+    flex:1;min-width:0;font:inherit;font-size:14.5px;padding:10px 11px;
+    border:1px solid var(--line);border-radius:var(--radius);
+    background:var(--paper-2);color:var(--ink)
+  }
+  .neuekat button{
+    border:1px solid var(--ink);border-radius:var(--radius);padding:0 15px;
+    font-size:14px;min-height:42px;white-space:nowrap
+  }
+
+  /* ---------- Dialog ---------- */
+  .dialog{
+    position:fixed;inset:0;z-index:40;display:grid;place-items:center;
+    padding:18px;background:rgba(18,36,61,.55)
+  }
+  .karte{
+    background:var(--paper-2);border:1px solid var(--line);
+    border-radius:var(--radius);padding:20px;max-width:520px;width:100%;
+    box-shadow:0 12px 40px rgba(18,36,61,.35)
+  }
+  .karte h3{
+    font-family:"Oswald",sans-serif;font-weight:400;text-transform:uppercase;
+    letter-spacing:.11em;font-size:16px;margin:0 0 10px
+  }
+  .karte p{margin:0 0 14px;font-size:14.5px;color:var(--ink-soft)}
+  .linkfeld{
+    width:100%;font-family:"IBM Plex Mono",monospace;font-size:12px;
+    padding:10px 11px;border:1px solid var(--line);border-radius:var(--radius);
+    background:var(--paper);color:var(--ink);margin-bottom:14px
+  }
+  .wahl{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  .wahl button{
+    border:1px solid var(--line);border-radius:var(--radius);padding:0 14px;
+    font-size:14px;min-height:42px;background:var(--paper)
+  }
+  .wahl button:first-child{border-color:var(--ink);background:var(--ink);color:var(--paper-2)}
 
   footer{
     padding:6px 16px 30px;font-family:"IBM Plex Mono",monospace;

@@ -4,6 +4,12 @@
 /* ---------------- Aufbau ---------------- */
 const app = document.getElementById("app");
 
+/* Basisbloecke aus DATA und die selbst angelegten Kategorien in einer Liste.
+   Eigene Kategorien haben keine festen Eintraege — alles darin ist "extra". */
+function kategorien(){
+  return DATA.concat(S.kat.map(k => ({id:k.id, t:k.t, items:[], eigen:true})));
+}
+
 function sichtbar(cat){ return !cat.modul || S.mods[cat.modul]; }
 function alleItems(cat){
   const base = cat.items.map((it,i)=>({id:cat.id+"-"+i, label:it[0], note:it[1]}));
@@ -27,7 +33,7 @@ function render(){
   app.innerHTML = "";
   let gesamt = 0, fertig = 0, sichtbareBloecke = 0;
 
-  DATA.forEach(cat=>{
+  kategorien().forEach(cat=>{
     if(!sichtbar(cat)) return;
     sichtbareBloecke++;
     const items = alleItems(cat);
@@ -35,7 +41,8 @@ function render(){
     gesamt += n; fertig += k;
 
     const sec = document.createElement("section");
-    sec.className = (cat.flag==="wichtig" ? "wichtig " : "") + (cat.modul ? "modul " : "") + (S.zu[cat.id] ? "zu" : "");
+    sec.className = (cat.flag==="wichtig" ? "wichtig " : "") + (cat.modul ? "modul " : "")
+                  + (cat.eigen ? "eigen " : "") + (S.zu[cat.id] ? "zu" : "");
 
     const head = document.createElement("button");
     head.className = "head";
@@ -104,6 +111,22 @@ function render(){
     btn.onclick = go;
     inp.addEventListener("keydown", e=>{ if(e.key==="Enter") go(); });
     add.append(inp, btn);
+
+    if(cat.eigen){
+      const weg = document.createElement("button");
+      weg.className = "katweg"; weg.textContent = "Kategorie löschen";
+      weg.onclick = ()=>{
+        const anzahl = (S.extra[cat.id]||[]).length;
+        if(!confirm('Kategorie "' + cat.t + '" löschen?'
+            + (anzahl ? " Die " + anzahl + " Einträge darin gehen mit verloren." : ""))) return;
+        (S.extra[cat.id]||[]).forEach(e => delete S.done[e.id]);
+        delete S.extra[cat.id];
+        delete S.zu[cat.id];
+        S.kat = S.kat.filter(k => k.id !== cat.id);
+        save(); render();
+      };
+      add.appendChild(weg);
+    }
     sec.appendChild(add);
 
     app.appendChild(sec);
@@ -112,8 +135,29 @@ function render(){
   if(!sichtbareBloecke){
     app.innerHTML = '<div class="leer">Keine Blöcke aktiv. Oben eine Reiseart wählen.</div>';
   }
+  app.appendChild(neueKategorie());
   kopf(fertig, gesamt);
   document.getElementById("foot").textContent = fertig + " von " + gesamt + " erledigt · " + MODE;
+}
+
+/* Zeile am Ende der Liste, ueber die eine eigene Kategorie entsteht. */
+function neueKategorie(){
+  const box = document.createElement("div");
+  box.className = "neuekat";
+  const inp = document.createElement("input");
+  inp.type = "text"; inp.placeholder = "Neue Kategorie";
+  inp.enterKeyHint = "done";
+  const btn = document.createElement("button");
+  btn.textContent = "Kategorie anlegen";
+  const go = ()=>{
+    const v = inp.value.trim(); if(!v) return;
+    S.kat.push({id:neueKatId(), t:v});
+    inp.value = ""; save(); render();
+  };
+  btn.onclick = go;
+  inp.addEventListener("keydown", e=>{ if(e.key==="Enter") go(); });
+  box.append(inp, btn);
+  return box;
 }
 
 function kopf(fertig, gesamt){
@@ -136,7 +180,7 @@ document.getElementById("filter").onclick = function(){
   save(); render();
 };
 document.getElementById("fold").onclick = function(){
-  const sichtbareIds = DATA.filter(sichtbar).map(c=>c.id);
+  const sichtbareIds = kategorien().filter(sichtbar).map(c=>c.id);
   const alleZu = sichtbareIds.every(id=>S.zu[id]);
   sichtbareIds.forEach(id=>{ if(alleZu) delete S.zu[id]; else S.zu[id] = 1; });
   this.textContent = alleZu ? "Alle einklappen" : "Alle aufklappen";
@@ -146,6 +190,89 @@ document.getElementById("reset").onclick = ()=>{
   if(!confirm("Alle Haken entfernen? Eigene Einträge und die Reiseart bleiben erhalten.")) return;
   S.done = {}; save(); render();
 };
+
+/* ---------------- Teilen ----------------
+   Ein Fenster mit fester Auswahl. confirm() reicht hier nicht, weil beim
+   geteilten Link drei Antworten moeglich sein muessen.                      */
+function dialog(titel, text, wahlen){
+  return new Promise(fertig=>{
+    const hg = document.createElement("div");
+    hg.className = "dialog";
+    const karte = document.createElement("div");
+    karte.className = "karte";
+    const h = document.createElement("h3"); h.textContent = titel;
+    const p = document.createElement("p"); p.textContent = text;
+    karte.append(h, p);
+    const zeile = document.createElement("div");
+    zeile.className = "wahl";
+    wahlen.forEach(([beschriftung, wert, art])=>{
+      const b = document.createElement("button");
+      b.textContent = beschriftung;
+      if(art) b.className = art;
+      b.onclick = ()=>{ hg.remove(); fertig(wert); };
+      zeile.appendChild(b);
+    });
+    karte.appendChild(zeile);
+    hg.appendChild(karte);
+    hg.onclick = ev => { if(ev.target === hg){ hg.remove(); fertig(null); } };
+    document.body.appendChild(hg);
+    const erster = zeile.querySelector("button");
+    if(erster) erster.focus();
+  });
+}
+
+document.getElementById("teilen").onclick = async function(){
+  const url = teilLink();
+  let kopiert = false;
+  try{ await navigator.clipboard.writeText(url); kopiert = true; }catch(e){}
+
+  const hg = document.createElement("div");
+  hg.className = "dialog";
+  const karte = document.createElement("div");
+  karte.className = "karte";
+  const h = document.createElement("h3"); h.textContent = "Liste teilen";
+  const p = document.createElement("p");
+  p.textContent = kopiert
+    ? "Der Link liegt in der Zwischenablage. Wer ihn öffnet, bekommt deine Liste mit allen Haken, eigenen Einträgen und Kategorien."
+    : "Diesen Link weitergeben. Wer ihn öffnet, bekommt deine Liste mit allen Haken, eigenen Einträgen und Kategorien.";
+  const feld = document.createElement("input");
+  feld.type = "text"; feld.readOnly = true; feld.value = url; feld.className = "linkfeld";
+  karte.append(h, p, feld);
+  const zeile = document.createElement("div"); zeile.className = "wahl";
+  const zu = document.createElement("button"); zu.textContent = "Schließen";
+  zu.onclick = ()=> hg.remove();
+  zeile.appendChild(zu);
+  karte.appendChild(zeile);
+  hg.appendChild(karte);
+  hg.onclick = ev => { if(ev.target === hg) hg.remove(); };
+  document.body.appendChild(hg);
+  feld.focus(); feld.select();
+};
+
+/* Der Stand aus einem geteilten Link. Ohne eigenen Stand wird er einfach
+   uebernommen, sonst entscheidet der Empfaenger.                           */
+async function geteiltesUebernehmen(){
+  if(!hatEigenen){
+    S = geteilterStand;
+    setStatus("geteilte Liste übernommen");
+    return;
+  }
+  const wahl = await dialog(
+    "Geteilte Liste geöffnet",
+    "Du hast bereits eine eigene Liste. Was soll mit der geteilten geschehen?",
+    [["Zusammenführen", "misch"],
+     ["Nur die geteilte", "fremd"],
+     ["Eigene behalten", "eigen"]]);
+  if(wahl === "misch"){
+    S = zusammenfuehren(S, geteilterStand);
+    setStatus("Listen zusammengeführt");
+  }else if(wahl === "fremd"){
+    S = geteilterStand;
+    setStatus("geteilte Liste übernommen");
+  }else{
+    setStatus("eigene Liste behalten");
+  }
+}
 
 /* ---------------- Offline-Betrieb ---------------- */
 if("serviceWorker" in navigator && location.protocol.startsWith("http")){
@@ -157,10 +284,21 @@ if("serviceWorker" in navigator && location.protocol.startsWith("http")){
 /* ---------------- Start ---------------- */
 (async ()=>{
   try{ await load(); }catch(e){ ladefehler = true; }
-  if(!Object.keys(S.mods).length) S.mods = {flug:true, strand:true};
+  if(!S.kat) S.kat = [];
+  /* Die Vorauswahl erst setzen, wenn feststeht, dass kein geteilter Stand
+     kommt — sonst waeren Flug und Strand nach dem Zusammenfuehren immer an. */
+  if(!Object.keys(S.mods).length && !geteilterStand) S.mods = {flug:true, strand:true};
   document.getElementById("filter").textContent = S.filter ? "Alles zeigen" : "Nur Offenes zeigen";
   document.getElementById("filter").setAttribute("aria-pressed", S.filter ? "true" : "false");
   chips(); render();
+
+  if(geteilterStand){
+    await geteiltesUebernehmen();
+    if(!S.kat) S.kat = [];
+    if(!Object.keys(S.mods).length) S.mods = {flug:true, strand:true};
+    chips(); render();
+  }
+
   if(ladefehler) setStatus("Stand unlesbar");
   else save();   // schreibt einmal in alle Ablagen und meldet, welche greift
 })();

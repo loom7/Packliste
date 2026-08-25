@@ -11,6 +11,8 @@ installierbar und danach offline nutzbar.
   Fernreise, Städtereise, Kinder, Baby, Geschäftlich, Haustier), die passende
   Blöcke ein- und ausblenden
 - Eigene Einträge je Block
+- Eigene Kategorien anlegen und wieder löschen
+- Liste per Link weitergeben, beim Öffnen wahlweise zusammenführen (siehe unten)
 - Filter „Nur Offenes zeigen", Blöcke einklappbar
 - Der Stand übersteht das Neuladen und wird in mehrere Ablagen parallel
   geschrieben (siehe unten)
@@ -71,6 +73,27 @@ gewinnt die mit dem jüngsten Zeitstempel:
 | `window.storage` | nur in Umgebungen, die das bereitstellen |
 
 Details und die Fallstricke stehen in [CLAUDE.md](CLAUDE.md).
+
+## Zu zweit an einer Liste arbeiten
+
+Der Knopf **„Liste teilen"** erzeugt einen Link, der die komplette Liste
+enthält — Haken, eigene Einträge und eigene Kategorien. Wer ihn öffnet und
+selbst schon eine Liste hat, wird gefragt:
+
+- **Zusammenführen** — beide Stände werden vereinigt. Haken und Reisearten
+  addieren sich, eigene Einträge und Kategorien werden über ihre Bezeichnung
+  abgeglichen, Doppelte fallen weg.
+- **Nur die geteilte** — der eigene Stand wird ersetzt.
+- **Eigene behalten** — der Link wird verworfen.
+
+Wer noch keine eigene Liste hat, bekommt die geteilte ohne Rückfrage.
+
+**Das ist kein Live-Abgleich.** GitHub Pages liefert nur statische Dateien aus,
+es gibt keinen Server, der einen gemeinsamen Stand halten könnte. Änderungen des
+einen erscheinen also nicht von selbst beim anderen; man schickt den Link hin
+und zurück und führt zusammen. Für eine Reise zu zweit reicht das, für echte
+Gleichzeitigkeit bräuchte es eine Gegenstelle — und damit eine Abhängigkeit, die
+dieses Projekt bewusst nicht hat.
 
 ## Testen
 

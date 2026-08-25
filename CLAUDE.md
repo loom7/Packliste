@@ -30,12 +30,17 @@ Gültigkeitsbereich brechen.
 
 ## Zustand und Kodierung
 
-`S` hat die Form `{done, mods, extra, zu, filter, ts}`. `encode()` verdichtet
-das zu einer Zeichenkette aus sieben durch **Punkt** getrennten Feldern:
+`S` hat die Form `{done, mods, extra, zu, kat, filter, ts}`. `encode()` verdichtet
+das zu einer Zeichenkette aus acht durch **Punkt** getrennten Feldern:
 
 ```
-1 . Zeitstempel(36) . Haken(base64url-Bitmaske) . Module(36) . Eingeklappt(36) . Filter(0|1) . Eigene(base64url)
+1 . Zeitstempel(36) . Haken(base64url-Bitmaske) . Module(36) . Eingeklappt(36) . Filter(0|1) . Eigene(base64url) . Kategorien(base64url)
 ```
+
+Feld 8 ist neu und fehlt in älteren Ständen — `decode()` behandelt es deshalb
+als optional. Eigene Kategorien tragen ihren Einklappzustand im eigenen
+Datensatz, weil Feld 5 eine Bitmaske über `DATA` ist und sie dort nicht
+vorkommen.
 
 **Der Punkt als Trennzeichen ist keine Geschmacksfrage.** Vorher stand dort ein
 `|`, den Browser in der Adresszeile zu `%7C` umschreiben — der Stand war beim
@@ -46,6 +51,22 @@ prozentkodierte Eingaben und das alte Format mit `|`.
 
 Die Haken-Bitmaske ist **positionsabhängig**: Bit *n* gehört zum *n*-ten Eintrag
 in `BASEIDS`, das sich aus der Reihenfolge in `DATA` ergibt.
+
+## Teilen und Zusammenführen
+
+Es gibt zwei Fragmente in der Adresszeile, und die Unterscheidung ist der ganze
+Trick: `#p=` schreibt die Anwendung bei jedem Speichern selbst, `#g=` entsteht
+nur über den Knopf „Liste teilen". Beim Laden landet `#p=` in der normalen
+Auswahl nach jüngstem Zeitstempel, `#g=` dagegen **nie** — sonst würde ein
+geteilter Link den Stand des Empfängers je nach Uhrzeit stillschweigend
+überschreiben. Stattdessen fragt `geteiltesUebernehmen()` nach.
+
+`zusammenfuehren(eigen, fremd)` vereinigt zwei Stände. Haken der Basisliste und
+Module lassen sich über ihre Kennung vergleichen, **eigene Einträge und
+Kategorien nicht**: Deren laufende Nummern (`k1`, `dok-x0`) entstehen auf jedem
+Gerät unabhängig voneinander, `k1` hier und `k1` dort sind nicht dasselbe.
+Beide werden deshalb über ihre Bezeichnung abgeglichen und bekommen im Ergebnis
+neue Kennungen. Wer daran etwas ändert, muss diesen Punkt im Kopf behalten.
 
 ## Einträge ändern — Auswirkung auf gespeicherte Stände
 
