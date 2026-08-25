@@ -81,6 +81,7 @@
   /* ---------- Abschnitte ---------- */
   main{padding:20px 16px 0}
   section{
+    position:relative;
     background:var(--paper-2);border:1px solid var(--line);
     border-radius:var(--radius);margin-bottom:14px;overflow:hidden
   }
@@ -133,27 +134,31 @@
     font-size:14px;min-height:42px
   }
   .del{padding:0 14px 0 0;color:rgba(165,56,47,.7);font-size:19px;align-self:center}
-  section.eigen .head{border-left-color:var(--ink-soft)}
-  .katweg{
-    border:1px solid var(--line);border-radius:var(--radius);padding:0 12px;
-    font-size:13px;min-height:42px;color:var(--alert);white-space:nowrap
-  }
+  section.eigen .head{border-left-color:var(--ink-soft);padding-right:56px}
 
-  /* ---------- Eigene Kategorie anlegen ---------- */
-  .neuekat{
-    display:flex;gap:8px;margin:4px 0 14px;padding:14px;
-    border:1px dashed var(--line);border-radius:var(--radius);
-    background:rgba(246,244,238,.55)
+  /* ---------- Loeschecke eigener Bloecke ----------
+     Dreieck oben rechts, die Diagonale laeuft von oben links nach unten
+     rechts durch das Quadrat. Der Farbunterschied zum Block zeichnet die
+     Trennlinie; bei Mouse-over leuchtet die Flaeche rot auf.               */
+  .blockweg{
+    position:absolute;top:0;right:0;width:52px;height:52px;z-index:2;
+    display:flex;align-items:flex-start;justify-content:flex-end;
+    padding:5px 6px 0 0;
+    background:var(--paper);color:var(--ink-soft);
+    clip-path:polygon(0 0, 100% 0, 100% 100%);
+    transition:background .16s ease,color .16s ease
   }
-  .neuekat input{
-    flex:1;min-width:0;font:inherit;font-size:14.5px;padding:10px 11px;
-    border:1px solid var(--line);border-radius:var(--radius);
-    background:var(--paper-2);color:var(--ink)
+  .blockweg:hover,.blockweg:focus-visible{background:var(--alert);color:#F6F4EE}
+  .blockweg:active{background:#8C2E26}
+  .blockweg svg{display:block}
+
+  /* ---------- Chip zum Anlegen ---------- */
+  .chip.neu{
+    border-style:dashed;border-color:var(--ink-soft);
+    background:transparent;color:var(--ink-soft);font-weight:700;
+    letter-spacing:.06em
   }
-  .neuekat button{
-    border:1px solid var(--ink);border-radius:var(--radius);padding:0 15px;
-    font-size:14px;min-height:42px;white-space:nowrap
-  }
+  .chip.neu:hover,.chip.neu:focus-visible{border-color:var(--ink);color:var(--ink)}
 
   /* ---------- Dialog ---------- */
   .dialog{
@@ -181,6 +186,12 @@
     font-size:14px;min-height:42px;background:var(--paper)
   }
   .wahl button:first-child{border-color:var(--ink);background:var(--ink);color:var(--paper-2)}
+  .wahl button.gefahr{border-color:var(--alert);background:var(--alert);color:#F6F4EE}
+  .eingabe{
+    width:100%;font:inherit;font-size:15px;padding:10px 11px;
+    border:1px solid var(--line);border-radius:var(--radius);
+    background:var(--paper);color:var(--ink);margin-bottom:14px
+  }
 
   footer{
     padding:6px 16px 30px;font-family:"IBM Plex Mono",monospace;

@@ -5,7 +5,7 @@
    WICHTIG bei Aenderungen: CACHE hochzaehlen, sonst sehen Nutzer mit
    installierter App weiterhin die alte Fassung. Neue Dateien in DATEIEN
    eintragen.                                                                */
-const CACHE = "packliste-v3";
+const CACHE = "packliste-v4";
 const DATEIEN = [
   "./",
   "./index.html",
