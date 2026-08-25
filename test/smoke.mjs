@@ -24,6 +24,9 @@ async function starten(speicher) {
     pretendToBeVisual: true
   });
   const w = dom.window;
+  /* jsdom stellt TextEncoder/TextDecoder nicht bereit, im Browser sind sie da */
+  w.TextEncoder = TextEncoder;
+  w.TextDecoder = TextDecoder;
   w.localStorage.clear();
   for (const [k, v] of Object.entries(speicher)) w.localStorage.setItem(k, v);
   // jsdom laedt die src-Verweise nicht nach, also selbst einhaengen — Reihenfolge zaehlt
