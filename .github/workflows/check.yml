@@ -1,0 +1,44 @@
+# Prueft jeden Pull Request: Syntax, Manifest und den Rauchtest.
+name: Pruefungen
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  pruefen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Syntax der Skripte
+        run: |
+          for f in js/data.js js/storage.js js/app.js sw.js test/smoke.mjs; do
+            node --check "$f" && echo "OK  $f"
+          done
+
+      - name: Manifest ist gueltiges JSON
+        run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('OK  manifest.webmanifest')"
+
+      - name: Alle Dateien des Service Workers vorhanden
+        run: |
+          node -e "
+            const fs=require('fs');
+            const sw=fs.readFileSync('sw.js','utf8');
+            const liste=sw.match(/const DATEIEN = \[([\s\S]*?)\]/)[1];
+            const pfade=[...liste.matchAll(/\"\.\/([^\"]+)\"/g)].map(m=>m[1]);
+            let fehlt=0;
+            for(const p of pfade){ if(!fs.existsSync(p)){ console.log('FEHLT  '+p); fehlt++; } else console.log('OK     '+p); }
+            if(fehlt) process.exit(1);
+          "
+
+      - name: Rauchtest
+        run: |
+          npm install jsdom --no-save --silent
+          node test/smoke.mjs
