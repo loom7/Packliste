@@ -7,10 +7,15 @@ const app = document.getElementById("app");
 /* Basisbloecke aus DATA und die selbst angelegten Kategorien in einer Liste.
    Eigene Kategorien haben keine festen Eintraege — alles darin ist "extra". */
 function kategorien(){
-  return DATA.concat(S.kat.map(k => ({id:k.id, t:k.t, items:[], eigen:true})));
+  return DATA.concat(S.kat.map(k => ({id:k.id, t:k.t, items:[], eigen:true, aus:k.aus})));
 }
 
-function sichtbar(cat){ return !cat.modul || S.mods[cat.modul]; }
+/* Basisbloecke haengen an ihrem Modul, eigene Bloecke an ihrem eigenen
+   Schalter — beide werden ueber die Chip-Zeile ein- und ausgeblendet.       */
+function sichtbar(cat){
+  if(cat.eigen) return !cat.aus;
+  return !cat.modul || S.mods[cat.modul];
+}
 function alleItems(cat){
   const base = cat.items.map((it,i)=>({id:cat.id+"-"+i, label:it[0], note:it[1]}));
   const eigen = (S.extra[cat.id]||[]).map(e=>({id:e.id, label:e.label, eigen:true}));
@@ -27,6 +32,32 @@ function chips(){
     b.onclick = ()=>{ S.mods[id] = !S.mods[id]; save(); chips(); render(); };
     box.appendChild(b);
   });
+  /* Eigene Bloecke hinter den Reisearten: derselbe Schalter, dazu ein
+     abgetrennter Bereich zum Entfernen. Der Chip ist deshalb kein Knopf,
+     sondern eine Huelle um zwei — ein Knopf im Knopf waere ungueltig.       */
+  S.kat.forEach(k=>{
+    const huelle = document.createElement("span");
+    huelle.className = "chip eigen" + (k.aus ? "" : " an");
+
+    const name = document.createElement("button");
+    name.className = "chipname"; name.textContent = k.t;
+    name.setAttribute("aria-pressed", k.aus ? "false" : "true");
+    name.onclick = ()=>{
+      if(k.aus) delete k.aus; else k.aus = 1;
+      save(); chips(); render();
+    };
+
+    const weg = document.createElement("button");
+    weg.className = "chipweg";
+    weg.setAttribute("aria-label", 'Block "' + k.t + '" entfernen');
+    weg.title = "Block entfernen";
+    weg.innerHTML = muelleimer(12);
+    weg.onclick = ()=> blockEntfernen(k);
+
+    huelle.append(name, weg);
+    box.appendChild(huelle);
+  });
+
   /* Kein Modul, sondern der Weg zu einem eigenen Block — deshalb abgesetzt
      gestrichelt und ohne aria-pressed.                                      */
   const neu = document.createElement("button");
@@ -34,6 +65,29 @@ function chips(){
   neu.title = "Eigenen Block anlegen";
   neu.onclick = blockAnlegen;
   box.appendChild(neu);
+}
+
+function muelleimer(px){
+  return '<svg viewBox="0 0 24 24" width="' + px + '" height="' + px + '"'
+    + ' fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"'
+    + ' stroke-linejoin="round" aria-hidden="true">'
+    + '<path d="M4 7h16M10 4h4M7 7l1 13h8l1-13M10 11v6M14 11v6"/></svg>';
+}
+
+/* Wird von der Ecke im Block und vom Chip aus aufgerufen. */
+async function blockEntfernen(cat){
+  const anzahl = (S.extra[cat.id]||[]).length;
+  const ja = await dialog("Block entfernen",
+    'Soll der Block "' + cat.t + '" wirklich entfernt werden?'
+    + (anzahl ? " Die " + anzahl + (anzahl === 1 ? " Eintrag" : " Einträge")
+              + " darin gehen mit verloren." : ""),
+    [["Entfernen", true, "gefahr"], ["Abbrechen", false]]);
+  if(!ja) return;
+  (S.extra[cat.id]||[]).forEach(e => delete S.done[e.id]);
+  delete S.extra[cat.id];
+  delete S.zu[cat.id];
+  S.kat = S.kat.filter(k => k.id !== cat.id);
+  save(); chips(); render();
 }
 
 /* Fragt nach der Bezeichnung und haengt den Block an. Gleichlautende
@@ -48,7 +102,7 @@ async function blockAnlegen(){
   const belegt = t => kategorien().some(c => c.t.toLowerCase() === t.toLowerCase());
   while(belegt(titel)) titel = name + " " + (n++);
   S.kat.push({id:neueKatId(), t:titel});
-  save(); render();
+  save(); chips(); render();
 }
 
 function render(){
@@ -159,24 +213,8 @@ function loeschecke(cat){
   b.className = "blockweg";
   b.setAttribute("aria-label", 'Block "' + cat.t + '" entfernen');
   b.title = "Block entfernen";
-  b.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none"'
-    + ' stroke="currentColor" stroke-width="2" stroke-linecap="round"'
-    + ' stroke-linejoin="round" aria-hidden="true">'
-    + '<path d="M4 7h16M10 4h4M7 7l1 13h8l1-13M10 11v6M14 11v6"/></svg>';
-  b.onclick = async ()=>{
-    const anzahl = (S.extra[cat.id]||[]).length;
-    const ja = await dialog("Block entfernen",
-      'Soll der Block "' + cat.t + '" wirklich entfernt werden?'
-      + (anzahl ? " Die " + anzahl + (anzahl === 1 ? " Eintrag" : " Einträge")
-                + " darin gehen mit verloren." : ""),
-      [["Entfernen", true, "gefahr"], ["Abbrechen", false]]);
-    if(!ja) return;
-    (S.extra[cat.id]||[]).forEach(e => delete S.done[e.id]);
-    delete S.extra[cat.id];
-    delete S.zu[cat.id];
-    S.kat = S.kat.filter(k => k.id !== cat.id);
-    save(); render();
-  };
+  b.innerHTML = muelleimer(15);
+  b.onclick = ()=> blockEntfernen(cat);
   return b;
 }
 

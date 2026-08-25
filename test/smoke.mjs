@@ -54,7 +54,7 @@ const abschnitt = (w, titel) =>
 
 /* Legt ueber den Chip "Neu" einen eigenen Block an. */
 async function blockAnlegen(w, name) {
-  [...w.document.querySelectorAll("#chips .chip")].find(c => c.textContent === "Neu").click();
+  w.document.querySelector("#chips .chip.neu").click();
   const dlg = w.document.querySelector(".dialog");
   if (!dlg) return false;
   dlg.querySelector(".eingabe").value = name;
@@ -122,7 +122,7 @@ pruefe("Beschaedigter Stand wird nicht ueberschrieben",
 /* 7. Eigenen Block ueber den Chip "Neu" anlegen und fuellen */
 w = await starten({});
 pruefe("Chip \"Neu\" steht in der Chip-Zeile",
-       [...w.document.querySelectorAll("#chips .chip")].some(c => c.textContent === "Neu"));
+       !!w.document.querySelector("#chips .chip.neu"));
 const angelegt = await blockAnlegen(w, "Angeln");
 pruefe("Chip \"Neu\" fragt nach der Bezeichnung", angelegt);
 pruefe("Eigener Block erscheint", ueberschriften(w).includes("Angeln"),
@@ -131,7 +131,47 @@ pruefe("Gleiche Bezeichnung bekommt eine Nummer",
        await blockAnlegen(w, "Angeln") && ueberschriften(w).includes("Angeln 2"),
        ueberschriften(w).filter(t => t.startsWith("Angeln")).join(", "));
 
-/* 8. Loeschecke: nur an eigenen Bloecken, fragt nach, Abbrechen laesst stehen */
+/* 8. Chip des eigenen Blocks: Platz, Schalter, Entfernen */
+const chipListe = w => [...w.document.querySelectorAll("#chips > *")];
+const chipText = e => e.textContent.trim();
+const eigenChip = (w, titel) =>
+  chipListe(w).find(c => c.classList.contains("eigen") && chipText(c) === titel);
+
+pruefe("Eigener Block erscheint als Chip", !!eigenChip(w, "Angeln"));
+pruefe("Chip steht hinter der letzten Reiseart und vor \"Neu\"",
+       chipListe(w).findIndex(c => chipText(c) === "Haustier")
+         < chipListe(w).indexOf(eigenChip(w, "Angeln")) &&
+       chipListe(w).indexOf(eigenChip(w, "Angeln"))
+         < chipListe(w).findIndex(c => chipText(c) === "Neu"),
+       chipListe(w).slice(-4).map(chipText).join(" | "));
+
+eigenChip(w, "Angeln").querySelector(".chipname").click();
+await warten();
+pruefe("Chip blendet den Block aus", !ueberschriften(w).includes("Angeln"));
+pruefe("Ausgeblendeter Chip bleibt in der Zeile", !!eigenChip(w, "Angeln"));
+eigenChip(w, "Angeln").querySelector(".chipname").click();
+await warten();
+pruefe("Chip blendet den Block wieder ein", ueberschriften(w).includes("Angeln"));
+
+eigenChip(w, "Angeln 2").querySelector(".chipname").click();
+await warten();
+const ausSpeicher = auslesen(w);
+w = await starten(ausSpeicher);
+pruefe("Ausgeblendet uebersteht Neuladen",
+       !ueberschriften(w).includes("Angeln 2") && !!eigenChip(w, "Angeln 2"));
+eigenChip(w, "Angeln 2").querySelector(".chipname").click();
+await warten();
+
+await blockAnlegen(w, "Wegwerf");
+eigenChip(w, "Wegwerf").querySelector(".chipweg").click();
+const chipFrage = w.document.querySelector(".dialog");
+pruefe("Entfernen ueber den Chip fragt nach", !!chipFrage);
+if (chipFrage) chipFrage.querySelector(".wahl button").click();
+await warten();
+pruefe("Entfernen ueber den Chip loescht Chip und Block",
+       !eigenChip(w, "Wegwerf") && !ueberschriften(w).includes("Wegwerf"));
+
+/* 9. Loeschecke: nur an eigenen Bloecken, fragt nach, Abbrechen laesst stehen */
 pruefe("Basisbloecke haben keine Loeschecke",
        w.document.querySelectorAll("section:not(.eigen) .blockweg").length === 0,
        w.document.querySelectorAll(".blockweg").length + " Ecken insgesamt");
@@ -151,7 +191,7 @@ if (frage) frage.querySelector(".wahl button").click();         // Entfernen
 await warten();
 pruefe("Entfernen loescht den Block", !ueberschriften(w).includes("Angeln 2"));
 
-/* 9. Eintrag in eigenem Block, Neuladen, Loeschen nimmt ihn mit */
+/* 10. Eintrag in eigenem Block, Neuladen, Loeschen nimmt ihn mit */
 const angeln = abschnitt(w, "Angeln");
 angeln.querySelector(".add input").value = "Angelrute";
 angeln.querySelector(".add button").click();
@@ -173,13 +213,13 @@ pruefe("Block entfernen nimmt seine Eintraege mit",
        !ueberschriften(merker).includes("Angeln") &&
        !beschriftungen(merker).some(t => t.includes("Angelrute")));
 
-/* 10. Teil-Link */
+/* 11. Teil-Link */
 w = await starten(katSpeicher);
 const link = w.teilLink();
 const fragment = link.slice(link.indexOf("#"));
 pruefe("Teil-Link traegt den Stand", fragment.startsWith("#g="), fragment.length + " Zeichen");
 
-/* 11. Geteilter Link ohne eigenen Stand wird uebernommen */
+/* 12. Geteilter Link ohne eigenen Stand wird uebernommen */
 w = await starten({}, fragment);
 pruefe("Geteilte Liste wird ohne eigenen Stand uebernommen",
        ueberschriften(w).includes("Angeln") &&
@@ -188,7 +228,7 @@ pruefe("Uebernahme wird gemeldet",
        /geteilte Liste|gespeichert/.test(w.document.getElementById("status").textContent),
        w.document.getElementById("status").textContent);
 
-/* 12. Geteilter Link neben eigenem Stand fragt nach und fuehrt zusammen */
+/* 13. Geteilter Link neben eigenem Stand fragt nach und fuehrt zusammen */
 const eigen = await starten({});
 await blockAnlegen(eigen, "Musik");
 const eigenerSpeicher = auslesen(eigen);
@@ -207,7 +247,7 @@ pruefe("Zusammenfuehren behaelt den fremden Eintrag",
        beschriftungen(w).some(t => t.includes("Angelrute")));
 pruefe("Dialog verschwindet nach der Wahl", !w.document.querySelector(".dialog"));
 
-/* 13. Zusammenfuehren rechnerisch: vereinigen, aber nichts doppeln */
+/* 14. Zusammenfuehren rechnerisch: vereinigen, aber nichts doppeln */
 const eintraege = st => Object.keys(st.extra).reduce((n, c) => n + st.extra[c].length, 0);
 const a = w.decode(speicher["packliste:v1"]);                     // 5 Haken, ein eigener Eintrag
 const b = w.decode(w.localStorage.getItem("packliste:v1"));       // Angeln und Musik

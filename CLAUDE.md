@@ -38,9 +38,11 @@ das zu einer Zeichenkette aus acht durch **Punkt** getrennten Feldern:
 ```
 
 Feld 8 ist neu und fehlt in älteren Ständen — `decode()` behandelt es deshalb
-als optional. Eigene Kategorien tragen ihren Einklappzustand im eigenen
-Datensatz, weil Feld 5 eine Bitmaske über `DATA` ist und sie dort nicht
-vorkommen.
+als optional. Jeder Eintrag darin ist `[Kennung, Bezeichnung, eingeklappt,
+ausgeblendet]`. Eigene Blöcke tragen beide Zustände im eigenen Datensatz, weil
+Feld 4 und 5 Bitmasken über `MODULE` und `DATA` sind und sie dort nicht
+vorkommen. Das vierte Element kam später dazu und darf ebenfalls fehlen — beim
+Erweitern immer hinten anhängen, nie dazwischen.
 
 **Der Punkt als Trennzeichen ist keine Geschmacksfrage.** Vorher stand dort ein
 `|`, den Browser in der Adresszeile zu `%7C` umschreiben — der Stand war beim

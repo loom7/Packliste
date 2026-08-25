@@ -152,6 +152,29 @@
   .blockweg:active{background:#8C2E26}
   .blockweg svg{display:block}
 
+  /* ---------- Chip eines eigenen Blocks ----------
+     Huelle um zwei Knoepfe: schalten und entfernen. Die Huelle traegt den
+     Rahmen, die Knoepfe die Innenabstaende.                                */
+  .chip.eigen{display:inline-flex;align-items:stretch;padding:0;overflow:hidden}
+  .chip.eigen .chipname{
+    display:flex;align-items:center;padding:0 10px 0 14px;
+    font-size:13.5px;font-weight:500;color:var(--ink)
+  }
+  .chip.eigen .chipweg{
+    display:flex;align-items:center;padding:0 11px 0 8px;
+    color:var(--ink-soft);border-left:1px solid var(--line);
+    transition:background .16s ease,color .16s ease
+  }
+  .chip.eigen .chipweg:hover,.chip.eigen .chipweg:focus-visible{
+    background:var(--alert);color:#F6F4EE
+  }
+  .chip.eigen.an{background:var(--ink);border-color:var(--ink)}
+  .chip.eigen.an .chipname{color:var(--paper-2)}
+  .chip.eigen.an .chipweg{
+    color:rgba(237,234,226,.7);border-left-color:rgba(237,234,226,.3)
+  }
+  .chip.eigen .chipweg svg{display:block}
+
   /* ---------- Chip zum Anlegen ---------- */
   .chip.neu{
     border-style:dashed;border-color:var(--ink-soft);
